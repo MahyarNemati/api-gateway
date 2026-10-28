@@ -185,6 +185,29 @@ CI also runs `cargo audit` and validates the shipped example config, because a
 gateway that terminates authentication is exactly where a stale dependency or
 a config that no longer loads hurts most.
 
+### On the two ignored advisories
+
+`cargo audit` runs with `--deny warnings`, so anything unlisted fails the
+build. Two transitive advisories are ignored in
+[`.cargo/audit.toml`](.cargo/audit.toml), each with a written analysis rather
+than a bare ID:
+
+- **RUSTSEC-2023-0071** (`rsa`, Marvin Attack) and **RUSTSEC-2026-0387**
+  (`crypto-bigint`, timing variability) both arrive through `jsonwebtoken`,
+  and both describe timing sidechannels in operations involving a **private
+  key or secret scalar**.
+- This gateway only ever *verifies* signatures, using public keys from a
+  provider's JWKS. It holds no RSA private key and performs no ECDSA signing,
+  so there is no secret in the process for a sidechannel to leak.
+
+Both entries say what would make them relevant again — the gateway issuing its
+own tokens, doing JWE, or signing with ECDSA — so the exemption is not
+open-ended.
+
+`serde_yaml` was replaced with `serde_norway` in the same pass, because
+`serde_yaml` is deprecated and pulls the unmaintained `unsafe-libyaml`. That
+one was a real fix rather than an exemption.
+
 ## Limitations
 
 - **HTTP/1.1 and HTTP/2 only.** No HTTP/3, no gRPC-specific handling, no

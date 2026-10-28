@@ -62,7 +62,9 @@ jobs:
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked
       # A gateway that terminates auth is exactly where a known-vulnerable
-      # dependency matters most.
+      # dependency matters most. Two transitive advisories are ignored with a
+      # written analysis in .cargo/audit.toml; everything else, including the
+      # unmaintained class, fails the build.
       - run: cargo audit --deny warnings
 
   docker:

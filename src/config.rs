@@ -17,7 +17,7 @@ pub enum ConfigError {
         source: std::io::Error,
     },
     #[error("parsing YAML: {0}")]
-    Yaml(#[from] serde_yaml::Error),
+    Yaml(#[from] serde_norway::Error),
     #[error("parsing TOML: {0}")]
     Toml(#[from] toml::de::Error),
     #[error("unsupported config extension {0:?} (expected .yaml, .yml or .toml)")]
@@ -313,7 +313,7 @@ impl Config {
             .unwrap_or_default()
             .to_ascii_lowercase();
         let cfg: Config = match ext.as_str() {
-            "yaml" | "yml" => serde_yaml::from_str(&raw)?,
+            "yaml" | "yml" => serde_norway::from_str(&raw)?,
             "toml" => toml::from_str(&raw)?,
             _ => return Err(ConfigError::UnsupportedFormat(ext)),
         };
@@ -322,7 +322,7 @@ impl Config {
     }
 
     pub fn from_yaml(raw: &str) -> Result<Self, ConfigError> {
-        let cfg: Config = serde_yaml::from_str(raw)?;
+        let cfg: Config = serde_norway::from_str(raw)?;
         cfg.validate()?;
         Ok(cfg)
     }

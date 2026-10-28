@@ -1,0 +1,36 @@
+# cargo-audit configuration.
+#
+# CI runs `cargo audit --deny warnings`, so anything not listed here fails the
+# build -- including the "unmaintained" class. Each entry below needs a reason,
+# not just an ID.
+
+[advisories]
+ignore = [
+  # RUSTSEC-2023-0071 -- rsa: "Marvin Attack", a timing sidechannel that can
+  # recover a key. No fixed version exists; it reaches us only through
+  # jsonwebtoken's RSA support.
+  #
+  # Not applicable here. The attack targets RSA *private key* operations
+  # (decryption and signing). This gateway never holds an RSA private key: it
+  # only verifies RS256 signatures on inbound JWTs using public keys fetched
+  # from a provider's JWKS. There is no private key in the process for a
+  # sidechannel to leak.
+  #
+  # Revisit if the gateway ever signs or decrypts with RSA -- for example if it
+  # starts issuing its own tokens, or doing JWE.
+  "RUSTSEC-2023-0071",
+
+  # RUSTSEC-2026-0387 -- crypto-bigint 0.5.5: timing variability in operations
+  # documented as constant-time. Reaches us through
+  # jsonwebtoken -> p256/p384 -> ecdsa -> elliptic-curve -> crypto-bigint.
+  # The fix is >=0.7.6, which we cannot take until jsonwebtoken bumps its
+  # elliptic-curve stack.
+  #
+  # Not applicable here for the same reason: these code paths run only for
+  # ECDSA signature *verification* (ES256/ES384) with public keys. Constant-
+  # time behaviour protects secret scalars, and there is no secret scalar in a
+  # verification -- the public key is public by definition.
+  #
+  # Revisit if the gateway ever performs ECDSA signing or key agreement.
+  "RUSTSEC-2026-0387",
+]
