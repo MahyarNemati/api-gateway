@@ -1,0 +1,101 @@
+# api-gateway configuration.
+#
+# Unknown fields are rejected (serde deny_unknown_fields), so a typo fails at
+# startup rather than silently taking a default. Validate without starting:
+#
+#   api-gateway --config gateway.example.yaml --check
+#
+# Durations are humantime strings: "250ms", "5s", "1m".
+
+listen: "0.0.0.0:8080"
+
+admin:
+  # Served on a separate port so /metrics is not exposed on the public
+  # listener. Omit to disable the admin listener entirely.
+  listen: "127.0.0.1:9090"
+
+server:
+  max_body_bytes: 1048576      # 1 MiB
+  shutdown_grace: "15s"        # in-flight requests get this long to finish
+  # Only enable behind a proxy you control: X-Forwarded-For is
+  # client-controlled, and trusting it lets a caller forge their own IP and
+  # escape IP-keyed rate limits.
+  trust_forwarded_for: false
+
+auth_providers:
+  - name: "keycloak"
+    jwks_url: "https://id.example.com/realms/main/protocol/openid-connect/certs"
+    issuer: "https://id.example.com/realms/main"
+    audiences: ["api"]
+    algorithms: ["RS256", "ES256"]   # never "none", never HS* with a public JWKS
+    refresh_interval: "1h"           # background JWKS refresh
+    min_refresh_interval: "30s"      # floor on refreshes triggered by an unknown kid
+    leeway_secs: 30                  # clock-skew tolerance for exp/nbf
+
+upstreams:
+  - name: "orders"
+    endpoints:
+      - "http://orders-1:8000"
+      - "http://orders-2:8000"
+    balance: "round_robin"           # round_robin (default) or least_connections
+    connect_timeout: "2s"
+    request_timeout: "10s"
+    health_check:
+      path: "/healthz"
+      interval: "5s"
+      timeout: "2s"
+      healthy_threshold: 2           # consecutive successes before re-admitting
+      unhealthy_threshold: 3         # consecutive failures before ejecting
+    circuit_breaker:
+      failure_threshold: 5
+      open_duration: "10s"
+      half_open_max_requests: 2      # probes allowed while half-open
+
+  - name: "public-web"
+    endpoints: ["http://web:3000"]
+
+routes:
+  # Routes are matched most-specific-first, so order here does not matter.
+  - name: "orders-api"
+    host: "api.example.com"
+    path_prefix: "/v1/orders"
+    methods: ["GET", "POST", "PATCH"]
+    upstream: "orders"
+    strip_prefix: false
+    timeout: "10s"
+    retry:
+      attempts: 3                    # total, including the first
+      base_backoff: "50ms"
+      max_backoff: "1s"
+      retry_on_status: [502, 503, 504]
+    auth:
+      provider: "keycloak"
+      claims:
+        - claim: "scope"
+          contains: "orders:write"   # token in a space-delimited string, or array member
+        - claim: "realm.roles"       # dotted paths index into nested claims
+          contains: "staff"
+        - claim: "email_verified"
+          equals: true
+        - claim: "tenant"
+          one_of: ["acme", "globex"]
+        - claim: "sub"
+          exists: true
+    rate_limit:
+      requests_per_second: 50
+      burst: 100
+      key: "subject"                 # ip | subject | route | {header: "X-API-Key"}
+
+  - name: "orders-read-public"
+    host: "api.example.com"
+    path_prefix: "/v1/orders/public"
+    methods: ["GET"]
+    upstream: "orders"
+    rate_limit:
+      requests_per_second: 5
+      burst: 10
+      key: "ip"
+
+  - name: "web"
+    path_prefix: "/"
+    upstream: "public-web"
