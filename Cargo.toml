@@ -13,7 +13,7 @@ http = "1"
 http-body-util = "0.1"
 humantime-serde = "1"
 hyper = { version = "1", features = ["server", "client", "http1", "http2"] }
-hyper-util = { version = "0.1", features = ["tokio", "server", "server-auto", "client-legacy", "http1", "http2"] }
+hyper-util = { version = "0.1", features = ["tokio", "server", "server-auto", "server-graceful", "client-legacy", "http1", "http2"] }
 jsonwebtoken = { version = "11", default-features = false, features = ["rust_crypto"] }
 notify = "8"
 pin-project-lite = "0.2"
