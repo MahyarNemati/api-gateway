@@ -2,3 +2,6 @@
 **/*.rs.bk
 .env
 *.profraw
+
+# macOS Finder artefact.
+.DS_Store
