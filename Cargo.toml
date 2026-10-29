@@ -34,5 +34,5 @@ uuid = { version = "1", features = ["v4"] }
 [dev-dependencies]
 base64 = "0.22"
 criterion = { version = "0.8", features = ["async_tokio"] }
-ed25519-dalek = { version = "2", features = ["pkcs8", "alloc"] }
+ed25519-dalek = { version = "3", features = ["pkcs8", "alloc"] }
 tempfile = "3"
